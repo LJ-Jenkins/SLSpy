@@ -201,7 +201,7 @@ def high_low_water(data, time='time', high=True):
     if isinstance(time, str):
         data, time = tools.pd2np(data, time)
     else:
-        data = tools.conv2np(data)
+        data = tools.conv2np(data, force_2d=True)
 
     colname = 'high '
     if not high:
@@ -220,7 +220,7 @@ def high_low_water(data, time='time', high=True):
 
     return hl_water
 
-def tidal_phase(tide_time, hwlw_time, unit='h', parallel=True):
+def tidal_phase(tide_time, hwlw_time, unit='h'):
     """
     Description
     ----------
@@ -235,9 +235,21 @@ def tidal_phase(tide_time, hwlw_time, unit='h', parallel=True):
     unit : str, optional
         Unit of the phase. Options are 'h' for hours, 'm' for minutes, 's' for seconds.
         Default is 'h'.
-    parallel : bool, optional
-        Boolean flag to use parallel processing.
-        Default is True.
+        np.timedelta64 options:
+        Code    Meaning     Time span (relative) Time span (absolute)
+        Y       year        +/- 9.2e18 years     [9.2e18 BC, 9.2e18 AD]
+        M       month       +/- 7.6e17 years     [7.6e17 BC, 7.6e17 AD]
+        W       week        +/- 1.7e17 years     [1.7e17 BC, 1.7e17 AD]
+        D       day         +/- 2.5e16 years     [2.5e16 BC, 2.5e16 AD]
+        h       hour        +/- 1.0e15 years     [1.0e15 BC, 1.0e15 AD]
+        m       minute      +/- 1.7e13 years     [1.7e13 BC, 1.7e13 AD]
+        s       second      +/- 2.9e11 years     [2.9e11 BC, 2.9e11 AD]
+        ms      millisecond +/- 2.9e8 years      [2.9e8 BC, 2.9e8 AD]
+        us / μs microsecond +/- 2.9e5 years      [290301 BC, 294241 AD]
+        ns      nanosecond  +/- 292 years        [1678 AD, 2262 AD]
+        ps      picosecond  +/- 106 days         [1969 AD, 1970 AD]
+        fs      femtosecond +/- 2.6 hours        [1969 AD, 1970 AD]
+        as      attosecond  +/- 9.2 seconds      [1969 AD, 1970 AD]
 
     Returns
     -------
@@ -245,24 +257,86 @@ def tidal_phase(tide_time, hwlw_time, unit='h', parallel=True):
         Phase relative to high/low water.
     """
 
-    def phase_single(j):
-        v = interp1d(hwlw_time, hwlw_time, kind='nearest', fill_value='extrapolate')(tide_time[j])
-        return (tide_time[j] - v).astype(f'timedelta64[{unit}]')
+    tide_time = tools.conv2np(tide_time)
+    hwlw_time = tools.conv2np(hwlw_time)
+    # Get closest indexes
+    closest_indexes = tools.closest_vals(tide_time, hwlw_time, indexes=True)
+    # Get time differences
+    phase = tide_time - hwlw_time[closest_indexes]
+    # Convert to specified unit
+    phase = phase / np.timedelta64(1, unit)
+
+    return phase
+
+
+
+
+
+
+
+
+
+
+
+
+    # tide_time_numeric = tide_time.values.astype('float')
+    # hwlw_time_numeric = hwlw_time.values.astype('float')
+
+    # def phase_single(j):
+    #     interp_func = interp1d(hwlw_time_numeric, hwlw_time.index, kind='nearest', fill_value='extrapolate')
+    #     v = interp_func(tide_time_numeric[j])
+    #     return (tide_time[j] - hwlw_time[v]) / np.timedelta64(1, unit)
     
-    tide_phase = np.full(len(tide_time), np.nan)
+    # tide_phase = np.full(len(tide_time), np.nan)
     
-    if parallel:
-        with Pool() as pool:
-            tide_phase = pool.map(phase_single, range(len(tide_time)))
-    else:
-        for j in range(len(tide_time)):
-            tide_phase[j] = phase_single(j)
+    # if parallel:
+    #     with Pool() as pool:
+    #         tide_phase = pool.map(phase_single, range(len(tide_time)))
+    # else:
+    #     for j in range(len(tide_time)):
+    #         tide_phase[j] = phase_single(j)
     
-    return tide_phase
+    # return tide_phase
 
 
 
-
+# def align_time_series(time1, data1, time2, data2):
+#     # Convert time arrays to np.datetime64 if not already
+#     if not isinstance(time1, np.ndarray):
+#         time1 = np.array(time1, dtype='datetime64[m]')
+#     if not isinstance(time2, np.ndarray):
+#         time2 = np.array(time2, dtype='datetime64[m]')
+    
+#     # Compute time differences for both time series
+#     time_diff1 = np.diff(time1).astype('timedelta64[m]').astype(int)
+#     time_diff2 = np.diff(time2).astype('timedelta64[m]').astype(int)
+    
+#     # Calculate GCD of time differences
+#     gcd = np.gcd.reduce(np.concatenate((time_diff1, time_diff2)))
+    
+#     # Round the GCD to the nearest minute
+#     gcd_rounded = np.timedelta64(int(gcd), 'm')
+    
+#     # Determine the start and end times for the aligned time series
+#     start_time = min(time1.min(), time2.min())
+#     end_time = max(time1.max(), time2.max())
+    
+#     # Create a combined time series with the rounded GCD timestep
+#     combined_time = np.arange(start_time, end_time + gcd_rounded, gcd_rounded, dtype='datetime64[m]')
+    
+#     # Initialize NaN-filled arrays for each time series
+#     aligned_data1 = np.full(len(combined_time), np.nan)
+#     aligned_data2 = np.full(len(combined_time), np.nan)
+    
+#     # Find indices for inserting data into the combined time series
+#     indices1 = np.searchsorted(combined_time, time1)
+#     indices2 = np.searchsorted(combined_time, time2)
+    
+#     # Fill the corresponding values from each original time series into the combined time series
+#     aligned_data1[indices1] = data1
+#     aligned_data2[indices2] = data2
+    
+#     return combined_time, aligned_data1, aligned_data2
 
 
 

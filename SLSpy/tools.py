@@ -118,6 +118,7 @@ def groupbin(vals, bins, percentiles='n', right=False):
         bins = np.percentile(vals, bins)
 
     groupbin_var = np.digitize(vals, bins, right=right)
+    # groupbin_var = np.searchsorted(bins, vals, side='right' if right else 'left') # think same?
 
     return groupbin_var
 
@@ -234,3 +235,25 @@ def nrows(data):
         return data.shape[0]
     except IndexError:
         return 1
+
+def closest_vals(A, B, indexes=False):
+    """
+    Description
+    ----------
+    Find the closest values (or indexes) in B to those in A.
+
+    Credit: Divakar (https://stackoverflow.com/questions/45349561/find-nearest-indices-for-one-array-against-all-values-in-another-array-python/45350318#45350318)
+    """
+    L = B.size
+    sidx_B = B.argsort()
+    sorted_B = B[sidx_B]
+    sorted_idx = np.searchsorted(sorted_B, A)
+    sorted_idx[sorted_idx == L] = L - 1
+    mask = (sorted_idx > 0) & \
+    ((np.abs(A - sorted_B[sorted_idx - 1]) < np.abs(A - sorted_B[sorted_idx])) )
+    if indexes:
+        out = sidx_B[sorted_idx-mask]
+    else:
+        out = B[sidx_B[sorted_idx-mask]]
+    
+    return out
