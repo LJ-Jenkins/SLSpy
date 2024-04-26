@@ -176,11 +176,13 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
 
     return tide, t_time, coef
 
-def high_low_water(data, time='time', high=True):
+def high_low_water(data, time='time', crossingvalue=0, high=True):
     """
     Description
     ----------
-    Calculates the high and low waters from given water level or tide data.
+    Calculates the high and low waters from given water level or tide data by getting the maxima/minima
+    of consecutive groups of values above/below a crossingvalue. Function is designed to be used with a
+    more sinusodial tidal curve, typically generated from the 3 main tidal constituents.
 
     Parameters
     ----------
@@ -188,6 +190,8 @@ def high_low_water(data, time='time', high=True):
         DataFrame containing the data with a column for timestamps or an array.
     time : str, array
         Column name for the times (str) or an array of times if data is also an array.
+    crossingvalue : float, optional
+        Value to cross to get the high/low water levels. default is 0.
     high : bool, optional
         Boolean flag to calculate the high water levels.
         If False, calculates the low water levels.
@@ -208,9 +212,8 @@ def high_low_water(data, time='time', high=True):
         data = data * -1
         colname = 'low '
 
-    avg = np.nanmean(data)
-    peaks = exc.thresh_cross_del(data, avg)
-    peaks[peaks < avg] = np.nan
+    peaks = exc.thresh_cross_del(data, crossingvalue)
+    peaks[peaks < crossingvalue] = np.nan
 
     if not high:
         peaks = peaks * -1

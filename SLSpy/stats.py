@@ -197,7 +197,7 @@ def pot_return_levels(data, return_periods, threshold, avgpy, plot='n'):
     data = tools.conv2np(data, nans='remove')
     return_periods = tools.conv2np(return_periods)
 
-    params = genpareto.fit(data, loc=threshold)
+    params = genpareto.fit(data, floc=threshold)
     f = 1 - (1 / (return_periods * avgpy))
     # ppf matches best with Matlab's gp functions.
     return_levels = genpareto.ppf(f, *params)
