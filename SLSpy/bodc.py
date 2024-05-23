@@ -199,7 +199,9 @@ def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
     t = pd.concat(t_list, ignore_index=True) 
 
     t = tools.sortdftime(t)
-
+    t.loc[:, ['water level (cd) (m)', 'residual (m)']] = \
+        t.loc[:, ['water level (cd) (m)', 'residual (m)']].apply(pd.to_numeric, errors='coerce')
+    
     if datum == 'od':
         _, _, _, od = tide_gauge_info(sitecode)
         t.loc[t['water level (cd) (m)'] != -99, 'water level (cd) (m)'] += od
@@ -211,8 +213,8 @@ def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
         colcon = [
             (2, 1, flags), # wl flags
             (4, 3, flags), # rs flags
-            (2, 1, (t.iloc[:, 2] > 90) | (t.iloc[:, 2] < -90)), # any remaining 99 or -9 data
-            (4, 3, (t.iloc[:, 4] > 90) | (t.iloc[:, 4] < -90))
+            (2, 1, (t.iloc[:, 1] > 90) | (t.iloc[:, 1] < -90)), # any remaining 99 or -9 data
+            (4, 3, (t.iloc[:, 3] > 90) | (t.iloc[:, 3] < -90))
         ]
         for condition_col, target_column, condition in colcon:
             t.loc[t.iloc[:, condition_col].isin(condition), t.columns[target_column]] = pd.NA

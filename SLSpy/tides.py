@@ -14,6 +14,7 @@ L.Jenkins@soton.ac.uk
 
 import pandas as pd
 import numpy as np
+import itertools
 from utide import solve, reconstruct
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
@@ -260,8 +261,8 @@ def tidal_phase(tide_time, hwlw_time, unit='h'):
         Phase relative to high/low water.
     """
 
-    tide_time = tools.conv2np(tide_time)
-    hwlw_time = tools.conv2np(hwlw_time)
+    tide_time = tools.conv2np(tide_time, times=True)
+    hwlw_time = tools.conv2np(hwlw_time, times=True)
     # Get closest indexes
     closest_indexes = tools.closest_vals(tide_time, hwlw_time, indexes=True)
     # Get time differences
@@ -271,7 +272,60 @@ def tidal_phase(tide_time, hwlw_time, unit='h'):
 
     return phase
 
+def skew_surge(water_levels, tide, sine_tide, time, window=6):
 
+    water_levels = tools.conv2np(water_levels)
+    tide = tools.conv2np(tide)
+    sine_tide = tools.conv2np(sine_tide)
+    time = tools.conv2np(time, times=True)
+
+    high_water = high_low_water(sine_tide, time=time, crossingvalue=0, high=True)
+
+    # check from here for type clashes etc
+
+    # get the hw times
+    hw_time = high_water['time'].values
+    # get the time to hw in hours
+    phase = tidal_phase(time, hw_time, unit='h')
+    # index where the phase is within the window length / 2
+    phase_index = np.where(np.abs(phase) < window / 2)[0]
+    # group consecutive indices
+    groups = [list(g) for _, g in itertools.groupby(phase_index, key=lambda x, c=itertools.count(): x - next(c))]
+    # preallocate
+    l = len(groups)
+    v = ['skew', 'time_2_tidal_hw', 'tidal_hw', 'tidal_hw_time', 'wl_hw', 
+        'wl_hw_time', 'nan_perc_in_window', 'nhours_2_nearest_nan']
+    s = {name: np.full(l, np.nan) for name in v}
+    # iterate through each group
+    for n, group_indices in groups:
+        try:
+            # tidal hw
+            i = np.nanargmax(tide[group_indices])
+            s['tidal_hw'][n] = tide[group_indices[i]]
+            s['tidal_hw_time'][n] = time[group_indices[i]]
+            # wl hw
+            j = np.nanargmax(water_levels[group_indices])
+            s['wl_hw'][n] = water_levels[group_indices[j]]
+            s['wl_hw_time'][n] = time[group_indices[j]]
+            # skew
+            s['skew'][n] = s['wl_hw'][n] - s['tidal_hw'][n]
+            s['time_2_tidal_hw'][n] = (s['wl_hw_time'][n] - s['tidal_hw_time'][n]) / np.timedelta64(1, 'h')
+            # nan flags
+            ni = np.where(np.isnan(water_levels[group_indices]))[0]
+            s['nan_perc_in_window'][n] = (len(ni) / len(group_indices)) * 100
+            s['nhours_2_nearest_nan'][n] = np.nanmin((s['wl_hw_time'][group_indices[ni]] - s['wl_hw_time'][n])
+                                                    / np.timedelta64(1, 'h'))
+        except:
+            [ar.__setitem__(n, np.nan) for ar in s]
+
+    colnames = ['skew surge', 'time to tidal high water from actual high water', 'tidal high water',
+                'time of tidal high water', 'sea level high water', 'time of sea level high water', 
+                'percentage of sea level nans in window', 'hours to nearest nan from sea level high water']
+    skew_surge = pd.DataFrame(s, columns=colnames)
+    # get rid of the groups with no tidal or wl max (e.g., all nan data)
+    skew_surge = skew_surge.dropna(how='all')
+
+    return skew_surge
 
 
 
@@ -300,49 +354,6 @@ def tidal_phase(tide_time, hwlw_time, unit='h'):
     #         tide_phase[j] = phase_single(j)
     
     # return tide_phase
-
-
-
-# def align_time_series(time1, data1, time2, data2):
-#     # Convert time arrays to np.datetime64 if not already
-#     if not isinstance(time1, np.ndarray):
-#         time1 = np.array(time1, dtype='datetime64[m]')
-#     if not isinstance(time2, np.ndarray):
-#         time2 = np.array(time2, dtype='datetime64[m]')
-    
-#     # Compute time differences for both time series
-#     time_diff1 = np.diff(time1).astype('timedelta64[m]').astype(int)
-#     time_diff2 = np.diff(time2).astype('timedelta64[m]').astype(int)
-    
-#     # Calculate GCD of time differences
-#     gcd = np.gcd.reduce(np.concatenate((time_diff1, time_diff2)))
-    
-#     # Round the GCD to the nearest minute
-#     gcd_rounded = np.timedelta64(int(gcd), 'm')
-    
-#     # Determine the start and end times for the aligned time series
-#     start_time = min(time1.min(), time2.min())
-#     end_time = max(time1.max(), time2.max())
-    
-#     # Create a combined time series with the rounded GCD timestep
-#     combined_time = np.arange(start_time, end_time + gcd_rounded, gcd_rounded, dtype='datetime64[m]')
-    
-#     # Initialize NaN-filled arrays for each time series
-#     aligned_data1 = np.full(len(combined_time), np.nan)
-#     aligned_data2 = np.full(len(combined_time), np.nan)
-    
-#     # Find indices for inserting data into the combined time series
-#     indices1 = np.searchsorted(combined_time, time1)
-#     indices2 = np.searchsorted(combined_time, time2)
-    
-#     # Fill the corresponding values from each original time series into the combined time series
-#     aligned_data1[indices1] = data1
-#     aligned_data2[indices2] = data2
-    
-#     return combined_time, aligned_data1, aligned_data2
-
-
-
 
 # def align_time_series(time1, data1, time2, data2):
 #     # Convert time arrays to np.datetime64 if not already

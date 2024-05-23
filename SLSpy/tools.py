@@ -15,6 +15,8 @@ Functions
 - `np2pd` -- converts numpy array inputs to a pandas dataframe.
 - `ncols` -- get the number of columns.
 - `nrows` -- get the number of rows.
+- `closest_vals` -- find the closest values (or indexes) in B to those in A.
+- `align_time_series` -- align two time series with different time steps.
 
 Convert input data to a NumPy array if it's not already.
 Luke Jenkins Feb 2024
@@ -135,13 +137,17 @@ def checkinputdf(data, func):
 
     return data
 
-def conv2np(data, nans='ignore', force_2d=False):
+def conv2np(data, nans='ignore', force_2d=False, times=False):
     """
     Convert input array to a NumPy array if it's not already.
     """
     
     if not isinstance(data, np.ndarray):
+        
         data = np.array(data)
+        if not times:
+            data[pd.isna(data)] = np.nan # use pd.NA to get all nans and then replace with numpy nans
+            data = data.astype(float)
         if ncols(data) == 1 and force_2d:
             data = data.reshape(-1, 1)
     if nans == 'remove' and np.isnan(data).any():
@@ -257,3 +263,33 @@ def closest_vals(A, B, indexes=False):
         out = B[sidx_B[sorted_idx-mask]]
     
     return out
+
+def align_time_series(time1, data1, time2, data2):
+    # Convert time arrays to np.datetime64 if not already
+    if not isinstance(time1, np.ndarray):
+        time1 = np.array(time1, dtype='datetime64[m]')
+    if not isinstance(time2, np.ndarray):
+        time2 = np.array(time2, dtype='datetime64[m]')
+    # Compute time differences for both time series
+    time_diff1 = np.diff(time1).astype('timedelta64[m]').astype(int)
+    time_diff2 = np.diff(time2).astype('timedelta64[m]').astype(int)
+    # Calculate GCD of time differences
+    gcd = np.gcd.reduce(np.concatenate((time_diff1, time_diff2)))
+    # Round the GCD to the nearest minute
+    gcd_rounded = np.timedelta64(int(gcd), 'm')
+    # Determine the start and end times for the aligned time series
+    start_time = min(time1.min(), time2.min())
+    end_time = max(time1.max(), time2.max())
+    # Create a combined time series with the rounded GCD timestep
+    combined_time = np.arange(start_time, end_time + gcd_rounded, gcd_rounded, dtype='datetime64[m]')
+    # Initialize NaN-filled arrays for each time series
+    aligned_data1 = np.full(len(combined_time), np.nan)
+    aligned_data2 = np.full(len(combined_time), np.nan)
+    # Find indices for inserting data into the combined time series
+    indices1 = np.searchsorted(combined_time, time1)
+    indices2 = np.searchsorted(combined_time, time2)
+    # Fill the corresponding values from each original time series into the combined time series
+    aligned_data1[indices1] = data1
+    aligned_data2[indices2] = data2
+    
+    return combined_time, aligned_data1, aligned_data2
