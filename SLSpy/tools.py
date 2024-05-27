@@ -18,7 +18,6 @@ Functions
 - `closest_vals` -- find the closest values (or indexes) in B to those in A.
 - `align_time_series` -- align two time series with different time steps.
 
-Convert input data to a NumPy array if it's not already.
 Luke Jenkins Feb 2024
 L.Jenkins@soton.ac.uk
 """
