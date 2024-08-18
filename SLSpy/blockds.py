@@ -14,12 +14,13 @@ L.Jenkins@soton.ac.uk
 import pandas as pd
 from . import tools
 
-def period_minmax(data, time='time', period='Y', min=False, max=True):
+
+def period_minmax(data, time="time", period="Y", min=False, max=True):
     """
     Description
     ----------
     Calculate the min, max, or both within a specified time period.
-    
+
     Parameters
     ----------
     data : dataframe, array
@@ -32,7 +33,7 @@ def period_minmax(data, time='time', period='Y', min=False, max=True):
         Specify whether to calculate the minimum.
     max : boolean
         Specify whether to calculate the maximum.
-    
+
     Returns
     -------
     data : dataframe
@@ -63,7 +64,7 @@ def period_minmax(data, time='time', period='Y', min=False, max=True):
     (B)Y(E)(S)-DEC annual frequency, anchored end of December. Same as 'YE'
     (B)Y(E)(S)-JAN annual frequency, anchored end of January (FEB, MAR, APR, etc.)
     """
-    
+
     if not (min or max):
         raise ValueError("At least one of 'min' or 'max' must be True.")
 
@@ -73,23 +74,41 @@ def period_minmax(data, time='time', period='Y', min=False, max=True):
         data, time, colinds = tools.np2pd(data, time)
         non_time_columns = [str(key) for key in colinds.keys()]
 
-    pmm = pd.DataFrame({'Time period': data[time].dt.to_period(period).unique()})
+    pmm = pd.DataFrame(
+        {"Time period": data[time].dt.to_period(period).unique()}
+    )
 
     for col in non_time_columns:
         if max:
-            max_values = data.groupby(data[time].dt.to_period(period))[col].max()
-            time_of_max = data.groupby(data[time].dt.to_period(period))[col].idxmax()
-            pmm[col + ' max'] = max_values.values
-            pmm[col + ' time of max'] = data.loc[time_of_max, time].values
+            max_values = data.groupby(data[time].dt.to_period(period))[
+                col
+            ].max()
+            time_of_max = data.groupby(data[time].dt.to_period(period))[
+                col
+            ].idxmax()
+            pmm[col + " max"] = max_values.values
+            pmm[col + " time of max"] = data.loc[time_of_max, time].values
         if min:
-            min_values = data.groupby(data[time].dt.to_period(period))[col].min()
-            time_of_min = data.groupby(data[time].dt.to_period(period))[col].idxmin()
-            pmm[col + ' min'] = min_values.values
-            pmm[col + ' time of min'] = data.loc[time_of_min, time].values
+            min_values = data.groupby(data[time].dt.to_period(period))[
+                col
+            ].min()
+            time_of_min = data.groupby(data[time].dt.to_period(period))[
+                col
+            ].idxmin()
+            pmm[col + " min"] = min_values.values
+            pmm[col + " time of min"] = data.loc[time_of_min, time].values
 
     return pmm
 
-def n_exc_per_period(data, time='time', threshold=None, period='Y', include_thresh=False, avg=False):
+
+def n_exc_per_period(
+    data,
+    time="time",
+    threshold=None,
+    period="Y",
+    include_thresh=False,
+    avg=False,
+):
     """
     Description
     ----------
@@ -102,12 +121,12 @@ def n_exc_per_period(data, time='time', threshold=None, period='Y', include_thre
     time : str, array
         Column name for the times (str) or an array of times if data is also an array.
     threshold : float, int, array or list
-        The threshold value/s for exceedances, if multiple columns in data then 
+        The threshold value/s for exceedances, if multiple columns in data then
         multiple thresholds should be givem.
     period : str
         Frequency for time aggregation ('Y' for years, 'M' for months, 'D' for days, see info in above func).
     include_thresh : bool, optional
-        Boolean flag to include values equal to the threshold. 
+        Boolean flag to include values equal to the threshold.
         If True, considers values greater than or equal to the threshold.
         If False, considers values strictly greater than the threshold.
     avg : bool, optional
@@ -131,8 +150,8 @@ def n_exc_per_period(data, time='time', threshold=None, period='Y', include_thre
         non_time = [str(key) for key in colinds.keys()]
 
     # Convert timestamps to the specified frequency
-    data['period'] = data[time].dt.to_period(period)
-    all_periods = data['period'].unique()
+    data["period"] = data[time].dt.to_period(period)
+    all_periods = data["period"].unique()
 
     # Filter exceedances based on the threshold condition
     # Group by period
@@ -140,24 +159,29 @@ def n_exc_per_period(data, time='time', threshold=None, period='Y', include_thre
     exc_list = [None] * len(non_time)
     if include_thresh:
         for i, col in enumerate(non_time):
-            exc_list[i] = data.loc[data[col] >= threshold[i], [col, 'period']].groupby('period').size().reset_index(name=col+' exc count')
+            exc_list[i] = (
+                data.loc[data[col] >= threshold[i], [col, "period"]]
+                .groupby("period")
+                .size()
+                .reset_index(name=col + " exc count")
+            )
     else:
         for i, col in enumerate(non_time):
-            exc_list[i] = data.loc[data[col] > threshold[i], [col, 'period']].groupby('period').size().reset_index(name=col+' exc count')
+            exc_list[i] = (
+                data.loc[data[col] > threshold[i], [col, "period"]]
+                .groupby("period")
+                .size()
+                .reset_index(name=col + " exc count")
+            )
 
     # Get all the periods
-    n_exc = pd.DataFrame({'period': all_periods})
+    n_exc = pd.DataFrame({"period": all_periods})
     for df in exc_list:
-        n_exc = pd.merge(n_exc, df, on='period', how='left')
+        n_exc = pd.merge(n_exc, df, on="period", how="left")
 
     if avg:
         # Calculate the average number of exceedances per time period
         n_exc = n_exc.iloc[:, 1:].mean()
-        n_exc = n_exc.rename(lambda x: x + ' avg')
+        n_exc = n_exc.rename(lambda x: x + " avg")
 
     return n_exc
-
-
-
-
-

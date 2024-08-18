@@ -15,6 +15,7 @@ import numpy as np
 import itertools
 from . import tools
 
+
 def thresh_cross_del(data, threshold):
     """
     Description
@@ -26,7 +27,7 @@ def thresh_cross_del(data, threshold):
     data : array
         Array of data.
     threshold : float
-        Threshold value. If multiple values are given, columns in data should correspond 
+        Threshold value. If multiple values are given, columns in data should correspond
         to each threshold and the crossing deletion will occur for each column.
 
     Returns
@@ -42,7 +43,12 @@ def thresh_cross_del(data, threshold):
         indices = np.where(data[:, i] > threshold[0])[0]
         # groups = [list(g) for k, g in itertools.groupby(data, key=lambda x: x > threshold) if k] # gets the data
         # Group consecutive indices
-        groups = [list(g) for _, g in itertools.groupby(indices, key=lambda x, c=itertools.count(): x - next(c))]
+        groups = [
+            list(g)
+            for _, g in itertools.groupby(
+                indices, key=lambda x, c=itertools.count(): x - next(c)
+            )
+        ]
 
         # Iterate through each group
         for group_indices in groups:
@@ -55,7 +61,10 @@ def thresh_cross_del(data, threshold):
 
     return data
 
-def time_above_threshold(data, time='time', threshold=None, include_thresh=False, colnames=False):
+
+def time_above_threshold(
+    data, time="time", threshold=None, include_thresh=False, colnames=False
+):
     """
     Description
     ----------
@@ -77,7 +86,7 @@ def time_above_threshold(data, time='time', threshold=None, include_thresh=False
     colnames : list, optional
         List of column names for the data. If not given, dataframe column names will be used,
         otherwise names will be 'Var 1' etc.
-        
+
     Returns
     -------
     time_above_thresh : dict or list
@@ -85,18 +94,18 @@ def time_above_threshold(data, time='time', threshold=None, include_thresh=False
         as well as the times corresponding to the first and last values in each group,
         or the only time for exceedances of length 1. If only one column, a list is returned.
     """
-    
+
     if len(threshold) == 1 and not threshold:
         raise ValueError("Threshold/s must be given.")
     threshold = tools.conv2list(threshold)
-    
+
     if isinstance(time, str):
         data, time, colinds = tools.pd2np(data, time)
     else:
         colinds = False
 
     if not colinds and not colnames:
-        colnames = ['Var ' + str(i) for i in range(1, tools.ncols(data) + 1)]
+        colnames = ["Var " + str(i) for i in range(1, tools.ncols(data) + 1)]
     if colinds and not colnames:
         colnames = [key for key in colinds.keys()]
 
@@ -106,20 +115,30 @@ def time_above_threshold(data, time='time', threshold=None, include_thresh=False
             indices = np.where(data[:, j] >= threshold[j])[0]
         else:
             indices = np.where(data[:, j] > threshold[j])[0]
-        groups = [list(g) for _, g in itertools.groupby(indices, key=lambda x, c=itertools.count(): x - next(c))]
+        groups = [
+            list(g)
+            for _, g in itertools.groupby(
+                indices, key=lambda x, c=itertools.count(): x - next(c)
+            )
+        ]
         # Calculate time in hours for each group
         t = [None] * len(groups)
-        tat = np.empty((len(groups),1))
+        tat = np.empty((len(groups), 1))
         for i in range(0, len(groups)):
             group_times = time[groups[i]]
             # Calculate time difference between first and last timestamps within each group
-            t[i] = group_times[0] if len(group_times) == 1 else [group_times[0], group_times[-1]]
-            tat[i] = (group_times[-1] - group_times[0]) / np.timedelta64(1, 's')
+            t[i] = (
+                group_times[0]
+                if len(group_times) == 1
+                else [group_times[0], group_times[-1]]
+            )
+            tat[i] = (group_times[-1] - group_times[0]) / np.timedelta64(
+                1, "s"
+            )
 
         time_above_thresh[colnames[j]] = [tat, t]
-        
+
     if len(time_above_thresh) == 1:
         time_above_thresh = time_above_thresh[colnames[j]]
 
     return time_above_thresh
-

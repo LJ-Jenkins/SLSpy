@@ -35,10 +35,25 @@ from scipy.ndimage import label, find_objects
 #     'calc_tide', 'tidal_phase', 'high_low_water'
 #     ]
 
-def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtime_freq='15min',
-                cov_perc=50, cov_npoints=7000, ncnstits=None,
-                msl_kwargs={'trend': 'linear', 'perc_cover': 75, 'degf': 1, 'out_type': 'array'},
-                **solve_kwargs):
+
+def calc_tide(
+    time,
+    water_levels,
+    latitude,
+    period="yearly",
+    newtime="n",
+    newtime_freq="15min",
+    cov_perc=50,
+    cov_npoints=7000,
+    ncnstits=None,
+    msl_kwargs={
+        "trend": "linear",
+        "perc_cover": 75,
+        "degf": 1,
+        "out_type": "array",
+    },
+    **solve_kwargs
+):
     """
     Description
     ----------
@@ -53,14 +68,14 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
     latitude : ndarray
         Latitude of target location.
     period : str, optional
-        Period of harmonic analysis. Options are 'yearly' for a year-by-year anaylsis or 
+        Period of harmonic analysis. Options are 'yearly' for a year-by-year anaylsis or
         'whole' for the whole timeseries at once.
     newtime : str, optional
         Whether to create a new time array. Options are 'y' or 'n'.
     newtime_freq : str, optional
         Frequency of the new time array (pandas freq inputs see pd.date_range).
     cov_perc : float, optional
-        Data coverage percentage to ignore, e.g., if 50 then only years with more than 
+        Data coverage percentage to ignore, e.g., if 50 then only years with more than
         50% coverage will be considered for the year by year harmonic analysis.
     cov_npoints : int, optional
         Number of points, e.g., if 7000 then only years with more than 7000 points will be
@@ -92,7 +107,13 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
 
     # default utide solve settings
     # defaults are set here and any user given solve_kwargs that are the same will overwite these defaults
-    def_solve_settings = {'constit': 'auto', 'conf_int': 'linear', 'method': 'ols', 'trend': False, 'white': True}
+    def_solve_settings = {
+        "constit": "auto",
+        "conf_int": "linear",
+        "method": "ols",
+        "trend": False,
+        "white": True,
+    }
     solve_kwargs = {**def_solve_settings, **solve_kwargs}
 
     water_levels = tools.conv2np(water_levels)
@@ -100,9 +121,11 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
     # remove msl trends
     water_levels = stats.remove_msl(water_levels, time=time, **msl_kwargs)
 
-    if newtime == 'y':
-        yrs = np.arange(time[0].year, time[len(time)-1].year + 1)
-        t_time = pd.date_range(start=str(yrs[0]), end=str(yrs[-1]), freq=newtime_freq)
+    if newtime == "y":
+        yrs = np.arange(time[0].year, time[len(time) - 1].year + 1)
+        t_time = pd.date_range(
+            start=str(yrs[0]), end=str(yrs[-1]), freq=newtime_freq
+        )
     else:
         yrs = time.dt.year.unique()
         t_time = time
@@ -112,23 +135,25 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
     elif isinstance(t_time, pd.DatetimeIndex):
         t_time_array = t_time.year
 
-    if period == 'yearly':
+    if period == "yearly":
         print("Tidal analysis year by year")
-        
+
         # Get the year by year coverage checks (% cover and n points)
         # and drop years that do not meet the given coverage
         yr_array = time.dt.year
         tide = [0] * len(yrs)
         cov_checks = np.zeros((len(yrs), 3))
-        
+
         for j, yr in enumerate(yrs):
             yr_mask = yr_array == yr
             yr_water_levels = water_levels[yr_mask]
             cov_checks[j, 0] = yr
             cov_checks[j, 1] = np.sum(~np.isnan(yr_water_levels))
             if cov_checks[j, 1] > 0:
-                cov_checks[j, 2] = cov_checks[j, 1] / len(yr_water_levels) * 100
-            
+                cov_checks[j, 2] = (
+                    cov_checks[j, 1] / len(yr_water_levels) * 100
+                )
+
         if cov_npoints:
             cov_checks = cov_checks[cov_checks[:, 1] > cov_npoints]
         if cov_perc:
@@ -141,22 +166,35 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
             coef_result = np.nan
 
             while not succesful_solve and np.isnan(coef_result):
-                nearest_yr = yrs_meeting_checks[np.abs(yrs_meeting_checks - yr).argmin()]
+                nearest_yr = yrs_meeting_checks[
+                    np.abs(yrs_meeting_checks - yr).argmin()
+                ]
                 yr_mask = yr_array == nearest_yr
                 yr_water_levels = water_levels[yr_mask]
                 yr_time = time[yr_mask]
                 try:
-                    coef = solve(yr_time, yr_water_levels, lat=latitude, **solve_kwargs)
+                    coef = solve(
+                        yr_time, yr_water_levels, lat=latitude, **solve_kwargs
+                    )
                     succesful_solve = True
                     coef_result = coef.mean
 
                 except:
-                    warn("solve FAILED: ignoring " + str(nearest_yr) + " and attempting the next nearest year with coverages met.\nConsider amending coverage inputs")
-                    yrs_meeting_checks = yrs_meeting_checks[yrs_meeting_checks != nearest_yr]
-            
+                    warn(
+                        "solve FAILED: ignoring "
+                        + str(nearest_yr)
+                        + " and attempting the next nearest year with coverages met.\nConsider amending coverage inputs"
+                    )
+                    yrs_meeting_checks = yrs_meeting_checks[
+                        yrs_meeting_checks != nearest_yr
+                    ]
 
             if ncnstits:
-                tide_bunch = reconstruct(t_time[t_time_array == yr], coef, constit=coef['name'][:ncnstits])
+                tide_bunch = reconstruct(
+                    t_time[t_time_array == yr],
+                    coef,
+                    constit=coef["name"][:ncnstits],
+                )
 
             else:
                 tide_bunch = reconstruct(t_time[t_time_array == yr], coef)
@@ -165,19 +203,20 @@ def calc_tide(time, water_levels, latitude, period='yearly', newtime='n', newtim
 
         tide = np.hstack(tide)
 
-    elif period == 'whole':
+    elif period == "whole":
         print("Tidal analysis for whole period")
 
         coef = solve(time, water_levels, lat=latitude, **solve_kwargs)
         tide_bunch = reconstruct(t_time, coef)
         tide = tide_bunch.h
 
-    if period == 'yearly' and ncnstits is not None:
+    if period == "yearly" and ncnstits is not None:
         coef = solve(time, water_levels, lat=latitude, **solve_kwargs)
 
     return tide, t_time, coef
 
-def high_low_water(data, time='time', crossingvalue=0, high=True):
+
+def high_low_water(data, time="time", crossingvalue=0, high=True):
     """
     Description
     ----------
@@ -196,7 +235,7 @@ def high_low_water(data, time='time', crossingvalue=0, high=True):
     high : bool, optional
         Boolean flag to calculate the high water levels.
         If False, calculates the low water levels.
-    
+
     Returns
     -------
     hl_water : pandas DataFrame
@@ -208,10 +247,10 @@ def high_low_water(data, time='time', crossingvalue=0, high=True):
     else:
         data = tools.conv2np(data, force_2d=True)
 
-    colname = 'high '
+    colname = "high "
     if not high:
         data = data * -1
-        colname = 'low '
+        colname = "low "
 
     peaks = exc.thresh_cross_del(data, crossingvalue)
     peaks[peaks < crossingvalue] = np.nan
@@ -219,12 +258,13 @@ def high_low_water(data, time='time', crossingvalue=0, high=True):
     if not high:
         peaks = peaks * -1
 
-    hl_water = pd.DataFrame({'time': time, colname + 'waters': peaks[:, 0]})
+    hl_water = pd.DataFrame({"time": time, colname + "waters": peaks[:, 0]})
     hl_water = hl_water.dropna()
 
     return hl_water
 
-def tidal_phase(tide_time, hwlw_time, unit='h'):
+
+def tidal_phase(tide_time, hwlw_time, unit="h"):
     """
     Description
     ----------
@@ -272,6 +312,7 @@ def tidal_phase(tide_time, hwlw_time, unit='h'):
 
     return phase
 
+
 def skew_surge(water_levels, tide, sine_tide, time, window=6):
 
     water_levels = tools.conv2np(water_levels)
@@ -279,62 +320,79 @@ def skew_surge(water_levels, tide, sine_tide, time, window=6):
     sine_tide = tools.conv2np(sine_tide)
     time = tools.conv2np(time, times=True)
 
-    high_water = high_low_water(sine_tide, time=time, crossingvalue=0, high=True)
+    high_water = high_low_water(
+        sine_tide, time=time, crossingvalue=0, high=True
+    )
 
     # check from here for type clashes etc
 
     # get the hw times
-    hw_time = high_water['time'].values
+    hw_time = high_water["time"].values
     # get the time to hw in hours
-    phase = tidal_phase(time, hw_time, unit='h')
+    phase = tidal_phase(time, hw_time, unit="h")
     # index where the phase is within the window length / 2
     phase_index = np.where(np.abs(phase) < window / 2)[0]
     # group consecutive indices
-    groups = [list(g) for _, g in itertools.groupby(phase_index, key=lambda x, c=itertools.count(): x - next(c))]
+    groups = [
+        list(g)
+        for _, g in itertools.groupby(
+            phase_index, key=lambda x, c=itertools.count(): x - next(c)
+        )
+    ]
     # preallocate
     l = len(groups)
-    v = ['skew', 'time_2_tidal_hw', 'tidal_hw', 'tidal_hw_time', 'wl_hw', 
-        'wl_hw_time', 'nan_perc_in_window', 'nhours_2_nearest_nan']
+    v = [
+        "skew",
+        "time_2_tidal_hw",
+        "tidal_hw",
+        "tidal_hw_time",
+        "wl_hw",
+        "wl_hw_time",
+        "nan_perc_in_window",
+        "nhours_2_nearest_nan",
+    ]
     s = {name: np.full(l, np.nan) for name in v}
     # iterate through each group
     for n, group_indices in groups:
         try:
             # tidal hw
             i = np.nanargmax(tide[group_indices])
-            s['tidal_hw'][n] = tide[group_indices[i]]
-            s['tidal_hw_time'][n] = time[group_indices[i]]
+            s["tidal_hw"][n] = tide[group_indices[i]]
+            s["tidal_hw_time"][n] = time[group_indices[i]]
             # wl hw
             j = np.nanargmax(water_levels[group_indices])
-            s['wl_hw'][n] = water_levels[group_indices[j]]
-            s['wl_hw_time'][n] = time[group_indices[j]]
+            s["wl_hw"][n] = water_levels[group_indices[j]]
+            s["wl_hw_time"][n] = time[group_indices[j]]
             # skew
-            s['skew'][n] = s['wl_hw'][n] - s['tidal_hw'][n]
-            s['time_2_tidal_hw'][n] = (s['wl_hw_time'][n] - s['tidal_hw_time'][n]) / np.timedelta64(1, 'h')
+            s["skew"][n] = s["wl_hw"][n] - s["tidal_hw"][n]
+            s["time_2_tidal_hw"][n] = (
+                s["wl_hw_time"][n] - s["tidal_hw_time"][n]
+            ) / np.timedelta64(1, "h")
             # nan flags
             ni = np.where(np.isnan(water_levels[group_indices]))[0]
-            s['nan_perc_in_window'][n] = (len(ni) / len(group_indices)) * 100
-            s['nhours_2_nearest_nan'][n] = np.nanmin((s['wl_hw_time'][group_indices[ni]] - s['wl_hw_time'][n])
-                                                    / np.timedelta64(1, 'h'))
+            s["nan_perc_in_window"][n] = (len(ni) / len(group_indices)) * 100
+            s["nhours_2_nearest_nan"][n] = np.nanmin(
+                (s["wl_hw_time"][group_indices[ni]] - s["wl_hw_time"][n])
+                / np.timedelta64(1, "h")
+            )
         except:
             [ar.__setitem__(n, np.nan) for ar in s]
 
-    colnames = ['skew surge', 'time to tidal high water from actual high water', 'tidal high water',
-                'time of tidal high water', 'sea level high water', 'time of sea level high water', 
-                'percentage of sea level nans in window', 'hours to nearest nan from sea level high water']
+    colnames = [
+        "skew surge",
+        "time to tidal high water from actual high water",
+        "tidal high water",
+        "time of tidal high water",
+        "sea level high water",
+        "time of sea level high water",
+        "percentage of sea level nans in window",
+        "hours to nearest nan from sea level high water",
+    ]
     skew_surge = pd.DataFrame(s, columns=colnames)
     # get rid of the groups with no tidal or wl max (e.g., all nan data)
-    skew_surge = skew_surge.dropna(how='all')
+    skew_surge = skew_surge.dropna(how="all")
 
     return skew_surge
-
-
-
-
-
-
-
-
-
 
     # tide_time_numeric = tide_time.values.astype('float')
     # hwlw_time_numeric = hwlw_time.values.astype('float')
@@ -343,17 +401,18 @@ def skew_surge(water_levels, tide, sine_tide, time, window=6):
     #     interp_func = interp1d(hwlw_time_numeric, hwlw_time.index, kind='nearest', fill_value='extrapolate')
     #     v = interp_func(tide_time_numeric[j])
     #     return (tide_time[j] - hwlw_time[v]) / np.timedelta64(1, unit)
-    
+
     # tide_phase = np.full(len(tide_time), np.nan)
-    
+
     # if parallel:
     #     with Pool() as pool:
     #         tide_phase = pool.map(phase_single, range(len(tide_time)))
     # else:
     #     for j in range(len(tide_time)):
     #         tide_phase[j] = phase_single(j)
-    
+
     # return tide_phase
+
 
 # def align_time_series(time1, data1, time2, data2):
 #     # Convert time arrays to np.datetime64 if not already
@@ -380,11 +439,3 @@ def skew_surge(water_levels, tide, sine_tide, time, window=6):
 #     aligned_data2[indices2] = data2
 
 #     return combined_time, aligned_data1, aligned_data2
-
-
-
-
-
-
-
-

@@ -18,6 +18,7 @@ import shutil
 import re
 from . import tools
 
+
 def tide_gauge_info(sid):
     """
     Description
@@ -31,7 +32,7 @@ def tide_gauge_info(sid):
 
     Returns
     -------
-    latitude_longitude : 
+    latitude_longitude :
         Latitude and longitude.
     full_site_name :
         Full site name e.g., "Aberdeen".
@@ -40,7 +41,7 @@ def tide_gauge_info(sid):
     datum_conversion :
         Datum conversion value for chart datum to ordnance datum conversion (to be added to water levels).
     """
-    
+
     # Define site information
     sites = {
         "dov": ["Dover", -3.67, [51.114389, 1.322528], "DOV"],
@@ -89,11 +90,30 @@ def tide_gauge_info(sid):
         "mor": ["Moray Firth", -2.22, [57.599167, -4.002222], "MOR"],
         "ptb": ["Portbury", -6.50, [51.500000, -2.728472], "PTB"],
         "mil": ["Millport", -1.62, [55.749806, -4.906333], "MIL"],
-        "belfast": ["Belfast", float('nan'), [float('nan'), float('nan')], float('nan')],
-        "exmouth": ["Exmouth", float('nan'), [float('nan'), float('nan')], float('nan')],
-        "padstow": ["Padstow", float('nan'), [float('nan'), float('nan')], float('nan')],
+        "belfast": [
+            "Belfast",
+            float("nan"),
+            [float("nan"), float("nan")],
+            float("nan"),
+        ],
+        "exmouth": [
+            "Exmouth",
+            float("nan"),
+            [float("nan"), float("nan")],
+            float("nan"),
+        ],
+        "padstow": [
+            "Padstow",
+            float("nan"),
+            [float("nan"), float("nan")],
+            float("nan"),
+        ],
     }
-    gauge_info = [value for key, value in sites.items() if sid.lower() == key or sid.lower() == value[0].lower()]
+    gauge_info = [
+        value
+        for key, value in sites.items()
+        if sid.lower() == key or sid.lower() == value[0].lower()
+    ]
     full_site_name = gauge_info[0][0]
     datum_conversion = gauge_info[0][1]
     latitude_longitude = gauge_info[0][2]
@@ -104,7 +124,8 @@ def tide_gauge_info(sid):
         # Return False for all outputs if sid is not found
         return [False] * 4
 
-def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
+
+def load(sitecode, directory, datum="od", flags=None, dispfile="n"):
     """
     Description
     ----------
@@ -121,11 +142,11 @@ def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
     flags : list, containing str
         Flags for which data should be removed, if 'df' is given then defaults are used (see below).
     dispfile : str, 'y' or 'n'
-        Choose to show the file being loaded at the command line. 
+        Choose to show the file being loaded at the command line.
 
     Returns
     -------
-    t : 
+    t :
         Dataframe of time, water level (cd or od), water level flags, residuals, and residual flags.
 
     Additional Information
@@ -133,7 +154,7 @@ def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
      BODC Quality Control Flags (as of March 2023)
      Defaults are: <, >, A, B, C, D, E, G, I, K, L, M, N, O, P, Q, U, W, X
      (some not relevant for sea level but included anyway)
-     
+
      FLAG	DESCRIPTION
      Blank	Unqualified
      <	    Below detection limit
@@ -161,72 +182,118 @@ def load(sitecode, directory, datum='od', flags=None, dispfile='n'):
      X	    Excessive difference
     """
 
-    #files = [file for file in os.listdir(directory) if file.endswith('.txt') and sitecode.lower() in file.lower()]
-    files = tools.fnames(directory, ends_with='.txt', pattern=sitecode, case_sensitive=False)
+    # files = [file for file in os.listdir(directory) if file.endswith('.txt') and sitecode.lower() in file.lower()]
+    files = tools.fnames(
+        directory, ends_with=".txt", pattern=sitecode, case_sensitive=False
+    )
 
-    t_list = [0] * len(files) # List to store DataFrames
+    t_list = [0] * len(files)  # List to store DataFrames
 
     for i, file_name in enumerate(files):
-        if dispfile == 'y':
+        if dispfile == "y":
             print(file_name)
 
         file_path = os.path.join(directory, file_name)
 
-        with open(file_path, 'r') as f:
-            for _ in range(10): # Ignore the first 10 lines
-                f.readline()  
+        with open(file_path, "r") as f:
+            for _ in range(10):  # Ignore the first 10 lines
+                f.readline()
 
-            first_line = ' '+f.readline().strip()
+            first_line = " " + f.readline().strip()
 
         indices = []
         for index, char in enumerate(first_line):
             # Check if the character is not a space and the previous character is a space or it's the first character
-            if char != ' ' and (index == 0 or first_line[index - 1] == ' '):
+            if char != " " and (index == 0 or first_line[index - 1] == " "):
                 indices.append(index)
 
-        widths=[(indices[1],indices[6]+3), # time
-                (indices[6]+3,indices[7]), # wl
-                (indices[7],indices[7]+1), # flags wl
-                (indices[7]+1,indices[8]), # residual
-                (indices[8],indices[8]+1)] # flags res
+        widths = [
+            (indices[1], indices[6] + 3),  # time
+            (indices[6] + 3, indices[7]),  # wl
+            (indices[7], indices[7] + 1),  # flags wl
+            (indices[7] + 1, indices[8]),  # residual
+            (indices[8], indices[8] + 1),
+        ]  # flags res
 
-        df = pd.read_fwf(file_path, colspecs=widths, skiprows=11,
-                    names=['time', 'water level (cd) (m)', 'wl flags', 'residual (m)', 'rs flags'],
-                    dtype={'time': str, 'wl flags': str, 'rs flags': str})
+        df = pd.read_fwf(
+            file_path,
+            colspecs=widths,
+            skiprows=11,
+            names=[
+                "time",
+                "water level (cd) (m)",
+                "wl flags",
+                "residual (m)",
+                "rs flags",
+            ],
+            dtype={"time": str, "wl flags": str, "rs flags": str},
+        )
 
         t_list[i] = df  # add the DataFrame to the list
 
-    t = pd.concat(t_list, ignore_index=True) 
+    t = pd.concat(t_list, ignore_index=True)
 
     t = tools.sortdftime(t)
-    t.loc[:, ['water level (cd) (m)', 'residual (m)']] = \
-        t.loc[:, ['water level (cd) (m)', 'residual (m)']].apply(pd.to_numeric, errors='coerce')
-    
-    if datum == 'od':
+    t.loc[:, ["water level (cd) (m)", "residual (m)"]] = t.loc[
+        :, ["water level (cd) (m)", "residual (m)"]
+    ].apply(pd.to_numeric, errors="coerce")
+
+    if datum == "od":
         _, _, _, od = tide_gauge_info(sitecode)
-        t.loc[t['water level (cd) (m)'] != -99, 'water level (cd) (m)'] += od
-        t.rename(columns={'water level (cd) (m)': 'water level (od) (m)'}, inplace=True)
+        t.loc[t["water level (cd) (m)"] != -99, "water level (cd) (m)"] += od
+        t.rename(
+            columns={"water level (cd) (m)": "water level (od) (m)"},
+            inplace=True,
+        )
 
     if flags is not None:
-        if flags == 'df':
-            flags = ['<','>','A','B','C','D','E','G','I','K','L','M','N','O','P','Q', 'U','W','X']
+        if flags == "df":
+            flags = [
+                "<",
+                ">",
+                "A",
+                "B",
+                "C",
+                "D",
+                "E",
+                "G",
+                "I",
+                "K",
+                "L",
+                "M",
+                "N",
+                "O",
+                "P",
+                "Q",
+                "U",
+                "W",
+                "X",
+            ]
         colcon = [
-            (2, 1, flags), # wl flags
-            (4, 3, flags), # rs flags
-            (2, 1, (t.iloc[:, 1] > 90) | (t.iloc[:, 1] < -90)), # any remaining 99 or -9 data
-            (4, 3, (t.iloc[:, 3] > 90) | (t.iloc[:, 3] < -90))
+            (2, 1, flags),  # wl flags
+            (4, 3, flags),  # rs flags
+            (
+                2,
+                1,
+                (t.iloc[:, 1] > 90) | (t.iloc[:, 1] < -90),
+            ),  # any remaining 99 or -9 data
+            (4, 3, (t.iloc[:, 3] > 90) | (t.iloc[:, 3] < -90)),
         ]
         for condition_col, target_column, condition in colcon:
-            t.loc[t.iloc[:, condition_col].isin(condition), t.columns[target_column]] = pd.NA
+            t.loc[
+                t.iloc[:, condition_col].isin(condition),
+                t.columns[target_column],
+            ] = pd.NA
 
     return t
 
-def tidy_downloads(files_directory, out_directory, sem='m', html='m', pdf='m'):
+
+def tidy_downloads(files_directory, out_directory, sem="m", html="m", pdf="m"):
     """
     Description
     ----------
-    Tidies a list of BODC UKNTGN files into folders of sites, each containing relevant files. 
-    Works for data from primary channel, values + residuals, surges and extremes. 
+    Tidies a list of BODC UKNTGN files into folders of sites, each containing relevant files.
+    Works for data from primary channel, values + residuals, surges and extremes.
     Existing files are overwritten.
 
     Parameters
@@ -240,32 +307,39 @@ def tidy_downloads(files_directory, out_directory, sem='m', html='m', pdf='m'):
     html : str, 'm' or 'd'
         Move or delete the .html files.
     pdf : str, 'm' or 'd'
-        Move or delete the .pdf files (user agreement and format). 
+        Move or delete the .pdf files (user agreement and format).
     """
 
     # Get the file names
-    #file_list = os.listdir(files_directory)
+    # file_list = os.listdir(files_directory)
 
     # Extract PDFs from the file list
-    #pdfs = [file for file in file_list if file.endswith('.pdf')]
-    pdfs = tools.fnames(files_directory, ends_with='.pdf')
+    # pdfs = [file for file in file_list if file.endswith('.pdf')]
+    pdfs = tools.fnames(files_directory, ends_with=".pdf")
 
     # Filter out files that aren't .txt
-    #file_list = [file for file in file_list if file.endswith('.txt')]
-    file_list = tools.fnames(files_directory, ends_with='.txt')
+    # file_list = [file for file in file_list if file.endswith('.txt')]
+    file_list = tools.fnames(files_directory, ends_with=".txt")
 
-    sem = ['surges', 'extremes', 'means']
+    sem = ["surges", "extremes", "means"]
     for s in sem:
-        if s+'.txt' in file_list:
-            file_list.remove(s+'.txt')
-            if sem == 'm':
-                shutil.move(os.path.join(files_directory, s+'.txt'), out_directory)
-            elif sem == 'd':
-                os.remove(os.path.join(files_directory, s+'.txt'))
+        if s + ".txt" in file_list:
+            file_list.remove(s + ".txt")
+            if sem == "m":
+                shutil.move(
+                    os.path.join(files_directory, s + ".txt"), out_directory
+                )
+            elif sem == "d":
+                os.remove(os.path.join(files_directory, s + ".txt"))
 
     # Create a list of site codes
-    site_code_list = [''.join(re.findall(r'[a-zA-Z]+',file.split('.')[0])) for file in file_list]
-    u_sites = list(dict.fromkeys(site_code_list)) # Get unique sitecodes (preserves order), list(set(site_code_list)) does not preserve order 
+    site_code_list = [
+        "".join(re.findall(r"[a-zA-Z]+", file.split(".")[0]))
+        for file in file_list
+    ]
+    u_sites = list(
+        dict.fromkeys(site_code_list)
+    )  # Get unique sitecodes (preserves order), list(set(site_code_list)) does not preserve order
 
     for site in u_sites:
         site_dir = os.path.join(out_directory, site)
@@ -276,20 +350,19 @@ def tidy_downloads(files_directory, out_directory, sem='m', html='m', pdf='m'):
             shutil.move(os.path.join(files_directory, mfile), site_dir)
 
         # Handle .html files
-        html_file = os.path.join(files_directory, site + '.html')
+        html_file = os.path.join(files_directory, site + ".html")
         if os.path.exists(html_file):
-            if html == 'm':
+            if html == "m":
                 shutil.move(html_file, site_dir)
-            elif html == 'd':
+            elif html == "d":
                 os.remove(html_file)
 
     # Move or delete PDFs
-    if len(pdfs) != 0: 
+    if len(pdfs) != 0:
         for mfile in pdfs:
-            if pdf == 'm':
-                shutil.move(os.path.join(files_directory, mfile), out_directory)
-            elif pdf == 'd':
+            if pdf == "m":
+                shutil.move(
+                    os.path.join(files_directory, mfile), out_directory
+                )
+            elif pdf == "d":
                 os.remove(os.path.join(files_directory, mfile))
-
-
-                

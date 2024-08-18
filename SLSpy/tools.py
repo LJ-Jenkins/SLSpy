@@ -27,40 +27,51 @@ import re
 import pandas as pd
 import numpy as np
 
+
 def sortdftime(t):
     """
     Description
     ----------
-    Converts the 'time' column of a df to datetime, then checks for NaT's, unsorted times, 
+    Converts the 'time' column of a df to datetime, then checks for NaT's, unsorted times,
     and duplicate times, returning the df after corrections.
     """
-    
-    t['time'] = pd.to_datetime(t['time'], errors='coerce')
-    t = t.dropna(subset=['time'])
 
-    if not t['time'].is_monotonic_increasing: # if any times not in order
-        t.sort_values(by=['time'], inplace=True)
+    t["time"] = pd.to_datetime(t["time"], errors="coerce")
+    t = t.dropna(subset=["time"])
+
+    if not t["time"].is_monotonic_increasing:  # if any times not in order
+        t.sort_values(by=["time"], inplace=True)
         t.reset_index(drop=True, inplace=True)
 
-    if t['time'].duplicated().any(): # if any duplicate times
+    if t["time"].duplicated().any():  # if any duplicate times
         t = t.drop_duplicates()
-        if t['time'].duplicated().any():
+        if t["time"].duplicated().any():
             # Identify duplicate rows based on the 'time' column
-            dups = t.duplicated(subset=['time'], keep=False)
+            dups = t.duplicated(subset=["time"], keep=False)
+
             # Function to find row with least NaNs in a group of duplicates
             def rownans(group):
                 return group.loc[group.isna().sum(axis=1).idxmin()]
+
             # Apply the function to groups of duplicate rows
-            #t = t[dups].groupby('time', as_index=False, include_groups=False).apply(rownans)
-            t = t[dups].groupby('time', as_index=False).apply(rownans)
+            # t = t[dups].groupby('time', as_index=False, include_groups=False).apply(rownans)
+            t = t[dups].groupby("time", as_index=False).apply(rownans)
 
     return t
 
-def fnames(directory, starts_with=None, ends_with=None, pattern=None, case_sensitive=True, folders='n'):
+
+def fnames(
+    directory,
+    starts_with=None,
+    ends_with=None,
+    pattern=None,
+    case_sensitive=True,
+    folders="n",
+):
     """
     Description
     ----------
-    Gets all the file names, and folder names if specified, in a given directory, with options for matching the 
+    Gets all the file names, and folder names if specified, in a given directory, with options for matching the
     start and/or end, and/or a specific pattern, as well as case sensitivity.
     """
 
@@ -70,10 +81,12 @@ def fnames(directory, starts_with=None, ends_with=None, pattern=None, case_sensi
         ends_with_func = str.endswith
         regex_flags = 0  # Case-sensitive
     else:
-        starts_with_func = lambda s, prefix: s.lower().startswith(prefix.lower())
+        starts_with_func = lambda s, prefix: s.lower().startswith(
+            prefix.lower()
+        )
         ends_with_func = lambda s, suffix: s.lower().endswith(suffix.lower())
         regex_flags = re.IGNORECASE  # Case-insensitive
-    
+
     if starts_with:
         items = [item for item in items if starts_with_func(item, starts_with)]
     if ends_with:
@@ -81,21 +94,26 @@ def fnames(directory, starts_with=None, ends_with=None, pattern=None, case_sensi
     if pattern:
         regex = re.compile(pattern, flags=regex_flags)
         items = [item for item in items if regex.search(item)]
-    
+
     # Separate files and folders
-    files = [item for item in items if os.path.isfile(os.path.join(directory, item))]
-    folders = [item for item in items if os.path.isdir(os.path.join(directory, item))]
-    
-    if folders == 'y':
+    files = [
+        item for item in items if os.path.isfile(os.path.join(directory, item))
+    ]
+    folders = [
+        item for item in items if os.path.isdir(os.path.join(directory, item))
+    ]
+
+    if folders == "y":
         files = [files, folders]
 
     return files
 
-def groupbin(vals, bins, percentiles='n', right=False):
+
+def groupbin(vals, bins, percentiles="n", right=False):
     """
     Description
     ----------
-    Bin data into groups specified by bins, with an option to make bins percentiles, 
+    Bin data into groups specified by bins, with an option to make bins percentiles,
     e.g., 25, 50, and 75 would become the 25th, 75th and 75th perecentiles of vals.
     Returns an array the same size of vals containing the groups, specified by numbers e.g., [1 1 2 3 1 2]
     Thank you numpy for digitize! This function was much longer in Matlab....
@@ -103,7 +121,7 @@ def groupbin(vals, bins, percentiles='n', right=False):
     Additional Information
     ----------
     Remember!
-    
+
     right   order of bins   returned index i satisfies
 
     False   increasing      bins[i-1] <= x < bins[i]
@@ -115,13 +133,14 @@ def groupbin(vals, bins, percentiles='n', right=False):
     True    decreasing      bins[i-1] >= x > bins[i]
     """
 
-    if percentiles == 'y':
+    if percentiles == "y":
         bins = np.percentile(vals, bins)
 
     groupbin_var = np.digitize(vals, bins, right=right)
     # groupbin_var = np.searchsorted(bins, vals, side='right' if right else 'left') # think same?
 
     return groupbin_var
+
 
 def checkinputdf(data, func):
     """
@@ -130,35 +149,61 @@ def checkinputdf(data, func):
     Checks and changes inputted dataframes if not formatted properly.
     """
 
-    if func == 'remove_msl':
-        data.rename(columns={col: 'time' if pd.api.types.is_datetime64_any_dtype(data[col]) and col != 'time' else col for col in data.columns}, inplace=True)
-        data.rename(columns={col: 'water levels' if pd.api.types.is_numeric_dtype(data[col]) and col != 'water levels' else col for col in data.columns}, inplace=True)
+    if func == "remove_msl":
+        data.rename(
+            columns={
+                col: (
+                    "time"
+                    if pd.api.types.is_datetime64_any_dtype(data[col])
+                    and col != "time"
+                    else col
+                )
+                for col in data.columns
+            },
+            inplace=True,
+        )
+        data.rename(
+            columns={
+                col: (
+                    "water levels"
+                    if pd.api.types.is_numeric_dtype(data[col])
+                    and col != "water levels"
+                    else col
+                )
+                for col in data.columns
+            },
+            inplace=True,
+        )
 
     return data
 
-def conv2np(data, nans='ignore', force_2d=False, times=False):
+
+def conv2np(data, nans="ignore", force_2d=False, times=False):
     """
     Convert input array to a NumPy array if it's not already.
     """
-    
+
     if not isinstance(data, np.ndarray):
-        
+
         data = np.array(data)
         if not times:
-            data[pd.isna(data)] = np.nan # use pd.NA to get all nans and then replace with numpy nans
+            data[pd.isna(data)] = (
+                np.nan
+            )  # use pd.NA to get all nans and then replace with numpy nans
             data = data.astype(float)
         if ncols(data) == 1 and force_2d:
             data = data.reshape(-1, 1)
-    if nans == 'remove' and np.isnan(data).any():
+    if nans == "remove" and np.isnan(data).any():
         data = data[~np.isnan(data)]
-        
+
     return data
+
 
 def conv2list(data, flatten=True):
     """
     Convert input data to a list if it's not already.
     """
-   
+
     if isinstance(data, (np.ndarray, pd.Series)):
         data = data.tolist()
     elif isinstance(data, (int, float)):
@@ -171,19 +216,21 @@ def conv2list(data, flatten=True):
 
     return data
 
+
 def dfcolinds(colnames):
     """
     Description
     ----------
     Gets the column names and positions from a dataframe.
     """
-   
-    colinds = dict(zip(colnames, list(range(0,len(colnames)))))
+
+    colinds = dict(zip(colnames, list(range(0, len(colnames)))))
     # data[0, colinds['Name of the column']] = 9
 
     return colinds
 
-def pd2np(data, timecol, colinds=True, nans='ignore'):
+
+def pd2np(data, timecol, colinds=True, nans="ignore"):
     """
     Description
     ----------
@@ -197,10 +244,11 @@ def pd2np(data, timecol, colinds=True, nans='ignore'):
     else:
         colinds = None
     data = data.to_numpy()
-    if nans == 'remove' and np.isnan(data).any():
+    if nans == "remove" and np.isnan(data).any():
         data = data[~np.isnan(data)]
 
     return data, time, colinds
+
 
 def np2pd(data, time, colinds=True):
     """
@@ -208,14 +256,15 @@ def np2pd(data, time, colinds=True):
     ----------
     Converts numpy array inputs to a pandas dataframe.
     """
-    
+
     data = pd.DataFrame(data)
-    data['time'] = time
-    time = 'time'
+    data["time"] = time
+    time = "time"
     if colinds:
         colinds = dfcolinds(data.columns[data.columns != time])
 
     return data, time, colinds
+
 
 def ncols(data):
     """
@@ -223,11 +272,12 @@ def ncols(data):
     ----------
     Get the number of columns.
     """
-    
+
     try:
         return data.shape[1]
     except IndexError:
         return 1
+
 
 def nrows(data):
     """
@@ -235,11 +285,12 @@ def nrows(data):
     ----------
     Get the number of rows.
     """
-    
+
     try:
         return data.shape[0]
     except IndexError:
         return 1
+
 
 def closest_vals(A, B, indexes=False):
     """
@@ -254,33 +305,40 @@ def closest_vals(A, B, indexes=False):
     sorted_B = B[sidx_B]
     sorted_idx = np.searchsorted(sorted_B, A)
     sorted_idx[sorted_idx == L] = L - 1
-    mask = (sorted_idx > 0) & \
-    ((np.abs(A - sorted_B[sorted_idx - 1]) < np.abs(A - sorted_B[sorted_idx])) )
+    mask = (sorted_idx > 0) & (
+        (
+            np.abs(A - sorted_B[sorted_idx - 1])
+            < np.abs(A - sorted_B[sorted_idx])
+        )
+    )
     if indexes:
-        out = sidx_B[sorted_idx-mask]
+        out = sidx_B[sorted_idx - mask]
     else:
-        out = B[sidx_B[sorted_idx-mask]]
-    
+        out = B[sidx_B[sorted_idx - mask]]
+
     return out
+
 
 def align_time_series(time1, data1, time2, data2):
     # Convert time arrays to np.datetime64 if not already
     if not isinstance(time1, np.ndarray):
-        time1 = np.array(time1, dtype='datetime64[m]')
+        time1 = np.array(time1, dtype="datetime64[m]")
     if not isinstance(time2, np.ndarray):
-        time2 = np.array(time2, dtype='datetime64[m]')
+        time2 = np.array(time2, dtype="datetime64[m]")
     # Compute time differences for both time series
-    time_diff1 = np.diff(time1).astype('timedelta64[m]').astype(int)
-    time_diff2 = np.diff(time2).astype('timedelta64[m]').astype(int)
+    time_diff1 = np.diff(time1).astype("timedelta64[m]").astype(int)
+    time_diff2 = np.diff(time2).astype("timedelta64[m]").astype(int)
     # Calculate GCD of time differences
     gcd = np.gcd.reduce(np.concatenate((time_diff1, time_diff2)))
     # Round the GCD to the nearest minute
-    gcd_rounded = np.timedelta64(int(gcd), 'm')
+    gcd_rounded = np.timedelta64(int(gcd), "m")
     # Determine the start and end times for the aligned time series
     start_time = min(time1.min(), time2.min())
     end_time = max(time1.max(), time2.max())
     # Create a combined time series with the rounded GCD timestep
-    combined_time = np.arange(start_time, end_time + gcd_rounded, gcd_rounded, dtype='datetime64[m]')
+    combined_time = np.arange(
+        start_time, end_time + gcd_rounded, gcd_rounded, dtype="datetime64[m]"
+    )
     # Initialize NaN-filled arrays for each time series
     aligned_data1 = np.full(len(combined_time), np.nan)
     aligned_data2 = np.full(len(combined_time), np.nan)
@@ -290,5 +348,5 @@ def align_time_series(time1, data1, time2, data2):
     # Fill the corresponding values from each original time series into the combined time series
     aligned_data1[indices1] = data1
     aligned_data2[indices2] = data2
-    
+
     return combined_time, aligned_data1, aligned_data2
